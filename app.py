@@ -7,7 +7,7 @@ from sklearn.preprocessing import MinMaxScaler
 app = Flask(__name__)
 
 # ACO parameters (default values)
-N = 50  # Number of ants
+N = 10  # Number of ants
 T = 100  # Number of iterations
 alpha = 1.0  # Pheromone importance
 beta = 2.0  # Heuristic importance
@@ -108,8 +108,8 @@ def index():
 def optimize():
     source_code = request.form['source_code']
     destination_code = request.form['destination_code']
-    num_nodes = int(request.form['num_nodes'])
-    iterations = int(request.form['iterations'])
+    num_nodes = N
+    iterations = T 
 
     # Fetch flight data
     flight_data = fetch_flight_data_aviationstack(aviationstack_api_key, source_code, destination_code)
