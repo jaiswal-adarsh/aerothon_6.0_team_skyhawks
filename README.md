@@ -53,7 +53,7 @@
 
 5. **Run the Application**:
    ```bash
-   flask run
+   python app.py
    ```
    The application will be available at `http://127.0.0.1:5000/`.
 
