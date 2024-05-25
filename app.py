@@ -43,14 +43,23 @@ def calculate_composite_risk(weather_df, flight_df):
                                    merged_df['wind_speed'] + merged_df['num_flights']) / 4
     return merged_df['composite_risk'].values
 
+# Calculate route cost considering both distance and composite risk
+def calculate_route_cost(route, distances, risks):
+    cost = 0
+    for i in range(len(route) - 1):
+        cost += distances[route[i]][route[i + 1]] + risks[route[i]][route[i + 1]]
+    return cost
+
 # ACO algorithm implementation
 def ant_colony_optimization(num_nodes, distances, risks, pheromones, heuristics, N, T, alpha, beta, rho, Q):
     best_route = None
     best_cost = float('inf')
+    best_reasons = []
 
     for t in range(T):
         all_routes = []
         all_costs = []
+        all_reasons = []
 
         for _ in range(N):
             route = []
@@ -58,6 +67,7 @@ def ant_colony_optimization(num_nodes, distances, risks, pheromones, heuristics,
             current_node = random.randint(0, num_nodes - 1)
             route.append(current_node)
             visited.add(current_node)
+            reasons = []
 
             while len(visited) < num_nodes:
                 probabilities = []
@@ -75,13 +85,21 @@ def ant_colony_optimization(num_nodes, distances, risks, pheromones, heuristics,
                 visited.add(next_node)
                 current_node = next_node
 
+                # Calculate reasons for choosing the current node
+                reasons.append({
+                    'node': next_node,
+                    'reason': 'Good weather conditions' if risks[current_node][next_node] < 0.5 else 'Avoiding bad weather'
+                })
+
             route_cost = calculate_route_cost(route, distances, risks)
             all_routes.append(route)
             all_costs.append(route_cost)
+            all_reasons.append(reasons)
 
             if route_cost < best_cost:
                 best_route = route
                 best_cost = route_cost
+                best_reasons = reasons
 
         # Evaporate pheromones
         pheromones *= (1 - rho)
@@ -91,25 +109,20 @@ def ant_colony_optimization(num_nodes, distances, risks, pheromones, heuristics,
             for i in range(len(route) - 1):
                 pheromones[route[i]][route[i + 1]] += Q / cost
 
-    return best_route, best_cost
+    return best_route, best_cost, best_reasons
 
-# Calculate route cost considering both distance and composite risk
-def calculate_route_cost(route, distances, risks):
-    cost = 0
-    for i in range(len(route) - 1):
-        cost += distances[route[i]][route[i + 1]] + risks[route[i]][route[i + 1]]
-    return cost
-
+# Route for the index page
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# Route for optimization
 @app.route('/optimize', methods=['POST'])
 def optimize():
     source_code = request.form['source_code']
     destination_code = request.form['destination_code']
-    num_nodes = N
-    iterations = T 
+    num_nodes = N or int(request.form['num_nodes'])
+    iterations = T or int(request.form['iterations'])
 
     # Fetch flight data
     flight_data = fetch_flight_data_aviationstack(aviationstack_api_key, source_code, destination_code)
@@ -125,10 +138,11 @@ def optimize():
     pheromones = np.ones((num_nodes, num_nodes)) / num_nodes
     heuristics = 1 / (distances + 1e-10)
 
-    best_route, best_cost = ant_colony_optimization(num_nodes, distances, composite_risk, pheromones, heuristics, N, iterations, alpha, beta, rho, Q)
+    best_route, best_cost, best_reasons = ant_colony_optimization(num_nodes, distances, composite_risk, pheromones, heuristics, N, iterations, alpha, beta, rho, Q)
 
     result = {
-        'best_route': best_route
+        'best_route': best_route,
+        'best_reasons': best_reasons
     }
 
     return jsonify(result)
